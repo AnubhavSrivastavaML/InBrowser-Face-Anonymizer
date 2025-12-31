@@ -17,7 +17,7 @@ A privacy-first tool that detects and blurs faces in images entirely client-side
 
 ## Live Demo
 
-👉 [Try it now](https://anubhav30.github.io/image-anonymizer)
+👉 [Try it now](https://anubhavsrivastavaml.github.io/InBrowser-Face-Anonymizer/)
 
 ## Use Cases
 
@@ -47,7 +47,7 @@ No build step required. Just serve the HTML file:
 
 ```bash
 # Clone the repo
-git clone https://github.com/anubhav30/image-anonymizer.git
+git clone https://github.com/AnubhavSrivastavaML/InBrowser-Face-Anonymizer.git
 cd image-anonymizer
 
 # Serve locally (any method works)
