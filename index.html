@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Anonymizer - Blur Faces in Browser</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #00d9ff;
+            margin-top: 15px;
+        }
+
+        .upload-zone {
+            border: 2px dashed #444;
+            border-radius: 16px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.02);
+            margin-bottom: 30px;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #00d9ff;
+            background: rgba(0, 217, 255, 0.05);
+        }
+
+        .upload-zone svg {
+            width: 48px;
+            height: 48px;
+            stroke: #666;
+            margin-bottom: 15px;
+        }
+
+        .upload-zone p {
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .upload-zone .formats {
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #00d9ff;
+            cursor: pointer;
+        }
+
+        .control-value {
+            text-align: right;
+            font-size: 0.85rem;
+            color: #00d9ff;
+            margin-top: 5px;
+        }
+
+        .image-container {
+            display: none;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .image-container.visible {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        @media (max-width: 700px) {
+            .image-container.visible {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .image-box {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #333;
+        }
+
+        .image-box h3 {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .image-box canvas,
+        .image-box img {
+            width: 100%;
+            border-radius: 8px;
+            display: block;
+        }
+
+        #outputCanvas {
+            display: none;
+        }
+
+        #outputCanvas.visible {
+            display: block;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #1a1a2e;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 217, 255, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #444;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            border-color: #666;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .status {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-size: 0.95rem;
+        }
+
+        .status.loading {
+            color: #00d9ff;
+        }
+
+        .status.success {
+            color: #00ff88;
+        }
+
+        .status.error {
+            color: #ff6b6b;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #444;
+            border-top-color: #00d9ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #00d9ff;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 1px solid #333;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #00d9ff;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Image Anonymizer</h1>
+            <p class="subtitle">Blur faces in images — 100% in your browser, no upload</p>
+            <span class="badge">🔒 Privacy First — Nothing leaves your device</span>
+        </header>
+
+        <div class="upload-zone" id="uploadZone">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p>Drop an image here or click to upload</p>
+            <span class="formats">Supports JPG, PNG, WebP</span>
+        </div>
+        <input type="file" id="fileInput" accept="image/*">
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Blur Intensity</label>
+                <input type="range" id="blurIntensity" min="5" max="50" value="20">
+                <div class="control-value"><span id="blurValue">20</span>px</div>
+            </div>
+            <div class="control-group">
+                <label>Detection Confidence</label>
+                <input type="range" id="confidence" min="30" max="90" value="50">
+                <div class="control-value"><span id="confidenceValue">50</span>%</div>
+            </div>
+        </div>
+
+        <div class="status" id="status">Upload an image to get started</div>
+
+        <div class="image-container" id="imageContainer">
+            <div class="image-box">
+                <h3>Original</h3>
+                <img id="originalImage" alt="Original">
+            </div>
+            <div class="image-box">
+                <h3>Anonymized</h3>
+                <canvas id="outputCanvas"></canvas>
+                <div id="placeholder" style="color: #555; text-align: center; padding: 40px;">
+                    Click "Anonymize" to process
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn-primary" id="processBtn" disabled>Anonymize Image</button>
+            <button class="btn-secondary" id="downloadBtn" style="display: none;">Download Result</button>
+            <button class="btn-secondary" id="resetBtn" style="display: none;">Reset</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat">
+                <div class="stat-value" id="faceCount">0</div>
+                <div class="stat-label">Faces Detected</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="processTime">0</div>
+                <div class="stat-label">Processing Time (ms)</div>
+            </div>
+        </div>
+
+        <footer>
+            Built by <a href="https://github.com/anubhav30" target="_blank">Anubhav Srivastava</a> · 
+            <a href="https://github.com/anubhav30/image-anonymizer" target="_blank">View on GitHub</a>
+        </footer>
+    </div>
+
+    <script>
+        let modelsLoaded = false;
+        let currentImage = null;
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const originalImage = document.getElementById('originalImage');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const placeholder = document.getElementById('placeholder');
+        const imageContainer = document.getElementById('imageContainer');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const status = document.getElementById('status');
+        const stats = document.getElementById('stats');
+        const blurIntensity = document.getElementById('blurIntensity');
+        const blurValue = document.getElementById('blurValue');
+        const confidence = document.getElementById('confidence');
+        const confidenceValue = document.getElementById('confidenceValue');
+
+        // Load models on page load
+        async function loadModels() {
+            setStatus('loading', '<span class="loader"></span>Loading face detection models...');
+            try {
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+                modelsLoaded = true;
+                setStatus('success', '✓ Models loaded. Ready to anonymize!');
+                setTimeout(() => {
+                    setStatus('default', 'Upload an image to get started');
+                }, 2000);
+            } catch (err) {
+                console.error('Error loading models:', err);
+                setStatus('error', '✗ Failed to load models. Please refresh and try again.');
+            }
+        }
+
+        function setStatus(type, message) {
+            status.className = 'status ' + type;
+            status.innerHTML = message;
+        }
+
+        // Event listeners
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImage(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleImage(file);
+            }
+        });
+
+        blurIntensity.addEventListener('input', (e) => {
+            blurValue.textContent = e.target.value;
+        });
+
+        confidence.addEventListener('input', (e) => {
+            confidenceValue.textContent = e.target.value;
+        });
+
+        processBtn.addEventListener('click', processImage);
+        downloadBtn.addEventListener('click', downloadImage);
+        resetBtn.addEventListener('click', resetAll);
+
+        function handleImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = new Image();
+                currentImage.onload = () => {
+                    originalImage.src = currentImage.src;
+                    imageContainer.classList.add('visible');
+                    processBtn.disabled = !modelsLoaded;
+                    downloadBtn.style.display = 'none';
+                    resetBtn.style.display = 'inline-block';
+                    outputCanvas.classList.remove('visible');
+                    placeholder.style.display = 'block';
+                    stats.style.display = 'none';
+                    setStatus('default', 'Image loaded. Click "Anonymize" to blur faces.');
+                };
+                currentImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processImage() {
+            if (!currentImage || !modelsLoaded) return;
+
+            processBtn.disabled = true;
+            setStatus('loading', '<span class="loader"></span>Detecting faces...');
+
+            const startTime = performance.now();
+
+            try {
+                // Detect faces
+                const minConfidence = parseInt(confidence.value) / 100;
+                const detections = await faceapi.detectAllFaces(
+                    currentImage,
+                    new faceapi.SsdMobilenetv1Options({ minConfidence })
+                );
+
+                const detectTime = performance.now();
+                setStatus('loading', `<span class="loader"></span>Found ${detections.length} face(s). Applying blur...`);
+
+                // Draw on canvas
+                outputCanvas.width = currentImage.width;
+                outputCanvas.height = currentImage.height;
+                const ctx = outputCanvas.getContext('2d');
+                
+                // Draw original image
+                ctx.drawImage(currentImage, 0, 0);
+
+                // Apply blur to each detected face
+                const blur = parseInt(blurIntensity.value);
+                
+                for (const detection of detections) {
+                    const box = detection.box;
+                    // Expand box slightly for better coverage
+                    const padding = 10;
+                    const x = Math.max(0, box.x - padding);
+                    const y = Math.max(0, box.y - padding);
+                    const w = Math.min(currentImage.width - x, box.width + padding * 2);
+                    const h = Math.min(currentImage.height - y, box.height + padding * 2);
+                    
+                    // Apply pixelated blur effect
+                    applyPixelatedBlur(ctx, x, y, w, h, blur);
+                }
+
+                const endTime = performance.now();
+
+                // Show results
+                placeholder.style.display = 'none';
+                outputCanvas.classList.add('visible');
+                downloadBtn.style.display = 'inline-block';
+                
+                document.getElementById('faceCount').textContent = detections.length;
+                document.getElementById('processTime').textContent = Math.round(endTime - startTime);
+                stats.style.display = 'flex';
+
+                setStatus('success', `✓ Done! ${detections.length} face(s) anonymized.`);
+
+            } catch (err) {
+                console.error('Processing error:', err);
+                setStatus('error', '✗ Error processing image. Please try again.');
+            }
+
+            processBtn.disabled = false;
+        }
+
+        function applyPixelatedBlur(ctx, x, y, w, h, intensity) {
+            // Get image data for the region
+            const pixelSize = Math.max(2, Math.floor(intensity / 3));
+            
+            // Create temporary canvas for the blur effect
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Draw the region to temp canvas at reduced size
+            const smallW = Math.ceil(w / pixelSize);
+            const smallH = Math.ceil(h / pixelSize);
+            
+            tempCtx.drawImage(
+                ctx.canvas,
+                x, y, w, h,
+                0, 0, smallW, smallH
+            );
+            
+            // Disable image smoothing for pixelated effect
+            tempCtx.imageSmoothingEnabled = false;
+            ctx.imageSmoothingEnabled = false;
+            
+            // Draw back at full size (creates pixelation)
+            tempCtx.drawImage(
+                tempCanvas,
+                0, 0, smallW, smallH,
+                0, 0, w, h
+            );
+            
+            // Draw the pixelated region back to main canvas
+            ctx.drawImage(tempCanvas, 0, 0, w, h, x, y, w, h);
+            
+            // Re-enable smoothing
+            ctx.imageSmoothingEnabled = true;
+        }
+
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'anonymized-image.png';
+            link.href = outputCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function resetAll() {
+            currentImage = null;
+            fileInput.value = '';
+            imageContainer.classList.remove('visible');
+            processBtn.disabled = true;
+            downloadBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+            stats.style.display = 'none';
+            outputCanvas.classList.remove('visible');
+            placeholder.style.display = 'block';
+            setStatus('default', 'Upload an image to get started');
+        }
+
+        // Initialize
+        window.addEventListener('load', loadModels);
+    </script>
+</body>
+</html>
